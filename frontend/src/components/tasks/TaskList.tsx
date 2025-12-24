@@ -1,39 +1,23 @@
+import toast from 'react-hot-toast';
 import { useState, useEffect, useMemo, useCallback, type JSX } from 'react';
 import { taskService } from '../../services/taskService';
 import { useTaskStore } from '../../stores/taskStore';
 import TaskCard from './TaskCard';
 import CreateTaskForm from './CreateTaskForm';
 import TaskFilters from './TaskFilters';
-import VoiceTaskCreator from '../ai/VoiceTaskCreator';
-import NaturalLanguageTaskCreator from '../ai/NaturalLanguageTaskCreator';
-import AIInsightsPanel from '../ai/AIInsightsPanel';
+import { Plus, Loader2, CheckCircle2, ListTodo, Clock, AlertCircle } from 'lucide-react';
 import AIChatWidget from '../ai/AIChatWidget';
-import { 
-  Plus, 
-  Loader2, 
-  Sparkles,
-  ListTodo,
-  CheckCircle2,
-  Clock,
-  AlertCircle
-} from 'lucide-react';
-import toast from 'react-hot-toast';
 import type { Task } from '../../types';
-
-interface TaskListProps {
-  searchQuery?: string;
-}
 
 type SortOption = 'created_at' | 'priority' | 'title' | 'status' | 'due_date';
 
-export default function TaskList({ searchQuery = '' }: TaskListProps): JSX.Element {
+export default function TaskList(): JSX.Element {
   const { tasks, setTasks, removeTask } = useTaskStore();
   const [loading, setLoading] = useState<boolean>(true);
   const [showCreateForm, setShowCreateForm] = useState<boolean>(false);
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [priorityFilter, setPriorityFilter] = useState<string>('');
   const [sortBy, setSortBy] = useState<SortOption>('created_at');
-  const [showAITools, setShowAITools] = useState<boolean>(false);
 
   const loadTasks = useCallback(async (): Promise<void> => {
     try {
@@ -73,28 +57,14 @@ export default function TaskList({ searchQuery = '' }: TaskListProps): JSX.Eleme
   const filteredTasks = useMemo((): Task[] => {
     let filtered = [...tasks];
 
-    // Search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (task) =>
-          task.title.toLowerCase().includes(query) ||
-          task.description?.toLowerCase().includes(query) ||
-          task.tags.some((tag) => tag.toLowerCase().includes(query))
-      );
-    }
-
-    // Status filter
     if (statusFilter) {
       filtered = filtered.filter((task) => task.status === statusFilter);
     }
 
-    // Priority filter
     if (priorityFilter) {
       filtered = filtered.filter((task) => task.priority === priorityFilter);
     }
 
-    // Sorting
     filtered.sort((a, b) => {
       switch (sortBy) {
         case 'priority': {
@@ -117,20 +87,18 @@ export default function TaskList({ searchQuery = '' }: TaskListProps): JSX.Eleme
     });
 
     return filtered;
-  }, [tasks, statusFilter, priorityFilter, sortBy, searchQuery]);
+  }, [tasks, statusFilter, priorityFilter, sortBy]);
 
-  // Stats
   const stats = useMemo(() => ({
     total: tasks.length,
     todo: tasks.filter((t) => t.status === 'todo').length,
-    inProgress: tasks.filter((t) => t.status === 'in_progress').length,
     completed: tasks.filter((t) => t.status === 'completed').length,
     urgent: tasks.filter((t) => t.priority === 'urgent').length,
   }), [tasks]);
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-24 animate-fade-in">
+      <div className="flex flex-col items-center justify-center py-24">
         <div className="w-16 h-16 bg-violet-100 rounded-2xl flex items-center justify-center mb-4">
           <Loader2 className="w-8 h-8 text-violet-600 animate-spin" />
         </div>
@@ -141,47 +109,21 @@ export default function TaskList({ searchQuery = '' }: TaskListProps): JSX.Eleme
 
   return (
     <>
-      <div className="space-y-6 animate-fade-in">
+      <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Your Tasks</h1>
-            <p className="text-gray-500 mt-1">
-              {filteredTasks.length} of {tasks.length} tasks
-              {searchQuery && ` matching "${searchQuery}"`}
-            </p>
+            <p className="text-gray-500 mt-1">{filteredTasks.length} of {tasks.length} tasks</p>
           </div>
           
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setShowAITools(!showAITools)}
-              className={`
-                flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium
-                transition-all duration-200
-                ${showAITools 
-                  ? 'bg-violet-100 text-violet-700 border border-violet-200' 
-                  : 'bg-white text-gray-700 border border-gray-200 hover:border-violet-300 hover:bg-violet-50'
-                }
-              `}
-            >
-              <Sparkles className="w-5 h-5" />
-              <span className="hidden sm:inline">AI Tools</span>
-            </button>
-            
-            <button
-              onClick={() => setShowCreateForm(!showCreateForm)}
-              className="
-                flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-white
-                bg-gradient-to-r from-violet-600 to-purple-600
-                hover:from-violet-700 hover:to-purple-700
-                transition-all duration-200 shadow-lg shadow-violet-500/25
-                hover:shadow-xl hover:shadow-violet-500/30 hover:-translate-y-0.5
-              "
-            >
-              <Plus className="w-5 h-5" />
-              <span>New Task</span>
-            </button>
-          </div>
+          <button
+            onClick={() => setShowCreateForm(!showCreateForm)}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-white bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 transition-all duration-200 shadow-lg shadow-violet-200"
+          >
+            <Plus className="w-5 h-5" />
+            <span>New Task</span>
+          </button>
         </div>
 
         {/* Stats Cards */}
@@ -193,7 +135,7 @@ export default function TaskList({ searchQuery = '' }: TaskListProps): JSX.Eleme
               </div>
               <div>
                 <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
-                <p className="text-sm text-gray-500">Total Tasks</p>
+                <p className="text-sm text-gray-500">Total</p>
               </div>
             </div>
           </div>
@@ -217,7 +159,7 @@ export default function TaskList({ searchQuery = '' }: TaskListProps): JSX.Eleme
               </div>
               <div>
                 <p className="text-2xl font-bold text-gray-900">{stats.completed}</p>
-                <p className="text-sm text-gray-500">Completed</p>
+                <p className="text-sm text-gray-500">Done</p>
               </div>
             </div>
           </div>
@@ -235,25 +177,10 @@ export default function TaskList({ searchQuery = '' }: TaskListProps): JSX.Eleme
           </div>
         </div>
 
-        {/* Create Task Form */}
         {showCreateForm && (
-          <div className="animate-fade-in-up">
-            <CreateTaskForm onClose={() => setShowCreateForm(false)} />
-          </div>
+          <CreateTaskForm onClose={() => setShowCreateForm(false)} />
         )}
 
-        {/* AI Tools Section */}
-        {showAITools && (
-          <div className="space-y-4 animate-fade-in-up">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <VoiceTaskCreator />
-              <NaturalLanguageTaskCreator />
-            </div>
-            <AIInsightsPanel />
-          </div>
-        )}
-
-        {/* Filters */}
         <TaskFilters
           statusFilter={statusFilter}
           priorityFilter={priorityFilter}
@@ -263,7 +190,6 @@ export default function TaskList({ searchQuery = '' }: TaskListProps): JSX.Eleme
           onSortChange={(value) => setSortBy(value as SortOption)}
         />
 
-        {/* Task List */}
         {filteredTasks.length === 0 ? (
           <div className="text-center py-16 bg-white rounded-2xl border-2 border-dashed border-gray-200">
             <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
@@ -274,19 +200,13 @@ export default function TaskList({ searchQuery = '' }: TaskListProps): JSX.Eleme
             </h3>
             <p className="text-gray-500 max-w-sm mx-auto">
               {tasks.length === 0
-                ? 'Create your first task to get started with AI-powered task management'
-                : 'Try adjusting your filters or search query'}
+                ? 'Create your first task to get started'
+                : 'Try adjusting your filters'}
             </p>
             {tasks.length === 0 && (
               <button
                 onClick={() => setShowCreateForm(true)}
-                className="
-                  mt-6 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl
-                  font-semibold text-white
-                  bg-gradient-to-r from-violet-600 to-purple-600
-                  hover:from-violet-700 hover:to-purple-700
-                  transition-all duration-200
-                "
+                className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-white bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700"
               >
                 <Plus className="w-5 h-5" />
                 Create Task
@@ -295,20 +215,13 @@ export default function TaskList({ searchQuery = '' }: TaskListProps): JSX.Eleme
           </div>
         ) : (
           <div className="grid gap-4">
-            {filteredTasks.map((task, index) => (
-              <div
-                key={task.id}
-                className="animate-fade-in-up"
-                style={{ animationDelay: `${index * 50}ms` }}
-              >
-                <TaskCard task={task} onDelete={handleDelete} />
-              </div>
+            {filteredTasks.map((task) => (
+              <TaskCard key={task.id} task={task} onDelete={handleDelete} />
             ))}
           </div>
         )}
       </div>
 
-      {/* AI Chat Widget */}
       <AIChatWidget />
     </>
   );

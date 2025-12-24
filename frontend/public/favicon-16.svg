@@ -1,0 +1,10 @@
+<svg width="16" height="16" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad16" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8B5CF6"/>
+      <stop offset="100%" stop-color="#3B82F6"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="12" fill="url(#grad16)"/>
+  <text x="32" y="40" font-size="28" font-family="Arial, sans-serif" fill="white" text-anchor="middle" font-weight="bold">AI</text>
+</svg>

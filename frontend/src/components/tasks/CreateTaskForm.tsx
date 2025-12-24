@@ -1,138 +1,240 @@
-import toast from 'react-hot-toast';
-import { useState } from 'react';
+/**
+ * CreateTaskForm Component
+ * Form for creating new tasks with validation
+ */
+
+import { useState, type FormEvent, type JSX } from 'react';
+import { X, Sparkles, Calendar, Flag, FileText } from 'lucide-react';
+import { Card, CardHeader, CardBody, CardFooter } from '../../components/ai/Card';
+import Button from '../../components/ai/Button';
+import Input from '../../components/ai/Input';
 import { taskService } from '../../services/taskService';
 import { useTaskStore } from '../../stores/taskStore';
-import { X } from 'lucide-react';
+import { createLogger } from '../../utils/logger';
+import { toastService } from '../../utils/toast';
+import { 
+  TASK_STATUS, 
+  TASK_PRIORITY,
+  TASK_STATUS_CONFIG,
+  TASK_PRIORITY_CONFIG,
+  type TaskStatus,
+  type TaskPriority,
+} from '../../constants';
+import type { TaskCreateInput } from '../../types';
+
+const logger = createLogger('CreateTaskForm');
 
 interface CreateTaskFormProps {
-    onClose: () => void;
+  onClose: () => void;
 }
 
-export default function CreateTaskForm({ onClose }: CreateTaskFormProps) {
-    const addTask = useTaskStore((state) => state.addTask);
-    const [loading, setLoading] = useState(false);
-    const [formData, setFormData] = useState({
-        title: '',
-        description: '',
-        priority: 'medium',
-        status: 'todo',
-    });
+interface FormData {
+  title: string;
+  description: string;
+  priority: TaskPriority;
+  status: TaskStatus;
+  due_date: string;
+}
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
+interface FormErrors {
+  title?: string;
+  description?: string;
+}
 
-        try {
-            const newTask = await taskService.createTask(formData);
-            addTask(newTask);
-            toast.success('Task created successfully!');
-            onClose();
-        } catch (error) {
-            console.error('Failed to create task:', error);
-            toast.error('Failed to create task');
-        } finally {
-            setLoading(false);
-        }
-    };
+const initialFormData: FormData = {
+  title: '',
+  description: '',
+  priority: TASK_PRIORITY.MEDIUM,
+  status: TASK_STATUS.TODO,
+  due_date: '',
+};
 
-    return (
-        <div className="bg-white border rounded-lg p-6">
-            <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-bold text-gray-900">Create New Task</h3>
-                <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
-                    <X className="w-5 h-5" />
-                </button>
+export default function CreateTaskForm({ onClose }: CreateTaskFormProps): JSX.Element {
+  const addTask = useTaskStore((state) => state.addTask);
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState<FormData>(initialFormData);
+  const [errors, setErrors] = useState<FormErrors>({});
+
+  const validateForm = (): boolean => {
+    const newErrors: FormErrors = {};
+
+    if (!formData.title.trim()) {
+      newErrors.title = 'Title is required';
+    } else if (formData.title.length > 200) {
+      newErrors.title = 'Title must be less than 200 characters';
+    }
+
+    if (formData.description && formData.description.length > 2000) {
+      newErrors.description = 'Description must be less than 2000 characters';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e: FormEvent): Promise<void> => {
+    e.preventDefault();
+    
+    if (!validateForm()) {
+      logger.warn('Form validation failed', { errors });
+      return;
+    }
+
+    setLoading(true);
+    logger.info('Creating task', { title: formData.title });
+
+    try {
+      const taskData: TaskCreateInput = {
+        title: formData.title.trim(),
+        description: formData.description.trim() || undefined,
+        priority: formData.priority,
+        status: formData.status,
+        due_date: formData.due_date || undefined,
+      };
+
+      const newTask = await taskService.createTask(taskData);
+      addTask(newTask);
+      
+      toastService.success('Task created successfully! ✨');
+      logger.info('Task created', { id: newTask.id });
+      
+      onClose();
+    } catch (error) {
+      logger.error('Failed to create task', error as Error);
+      toastService.error('Failed to create task');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleChange = (field: keyof FormData, value: string): void => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    
+    // Clear error when user starts typing
+    if (errors[field as keyof FormErrors]) {
+      setErrors((prev) => ({ ...prev, [field]: undefined }));
+    }
+  };
+
+  return (
+    <Card variant="elevated" className="mb-6">
+      <CardHeader action={
+        <Button variant="ghost" size="icon" onClick={onClose}>
+          <X className="w-5 h-5" />
+        </Button>
+      }>
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-purple-600 rounded-lg flex items-center justify-center">
+            <Sparkles className="w-4 h-4 text-white" />
+          </div>
+          <span>Create New Task</span>
+        </div>
+      </CardHeader>
+
+      <form onSubmit={handleSubmit}>
+        <CardBody className="space-y-5">
+          {/* Title */}
+          <Input
+            label="Title"
+            type="text"
+            required
+            value={formData.title}
+            onChange={(e) => handleChange('title', e.target.value)}
+            placeholder="What needs to be done?"
+            error={errors.title}
+            leftIcon={<FileText className="w-5 h-5" />}
+          />
+
+          {/* Description */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Description
+            </label>
+            <textarea
+              value={formData.description}
+              onChange={(e) => handleChange('description', e.target.value)}
+              rows={3}
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-100 focus:border-violet-500 transition-all resize-none"
+              placeholder="Add more details (optional)"
+            />
+            {errors.description && (
+              <p className="mt-2 text-sm text-red-500">{errors.description}</p>
+            )}
+          </div>
+
+          {/* Priority, Status, Due Date */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Priority */}
+            <div>
+              <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-2">
+                <Flag className="w-4 h-4" />
+                Priority
+              </label>
+              <select
+                value={formData.priority}
+                onChange={(e) => handleChange('priority', e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-violet-100 focus:border-violet-500 transition-all"
+              >
+                {Object.entries(TASK_PRIORITY).map(([key, value]) => (
+                  <option key={value} value={value}>
+                    {TASK_PRIORITY_CONFIG[value].label}
+                  </option>
+                ))}
+              </select>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Title
-                    </label>
-                    <input
-                        type="text"
-                        required
-                        value={formData.title}
-                        onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                        placeholder="Enter task title"
-                    />
-                </div>
+            {/* Status */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Status
+              </label>
+              <select
+                value={formData.status}
+                onChange={(e) => handleChange('status', e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-violet-100 focus:border-violet-500 transition-all"
+              >
+                {Object.entries(TASK_STATUS).map(([key, value]) => (
+                  <option key={value} value={value}>
+                    {TASK_STATUS_CONFIG[value as TaskStatus].label}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Description
-                    </label>
-                    <textarea
-                        value={formData.description}
-                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                        rows={3}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                        placeholder="Enter task description (optional)"
-                    />
-                </div>
+            {/* Due Date */}
+            <div>
+              <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-2">
+                <Calendar className="w-4 h-4" />
+                Due Date
+              </label>
+              <input
+                type="datetime-local"
+                value={formData.due_date}
+                onChange={(e) => handleChange('due_date', e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-violet-100 focus:border-violet-500 transition-all"
+              />
+            </div>
+          </div>
+        </CardBody>
 
-                <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Priority
-                        </label>
-                        <select
-                            value={formData.priority}
-                            onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                        >
-                            <option value="low">Low</option>
-                            <option value="medium">Medium</option>
-                            <option value="high">High</option>
-                            <option value="urgent">Urgent</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Status
-                        </label>
-                        <select
-                            value={formData.status}
-                            onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                        >
-                            <option value="todo">To Do</option>
-                            <option value="in_progress">In Progress</option>
-                            <option value="completed">Completed</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Due Date & Time
-                        </label>
-                        <input
-                            type="datetime-local"
-                            value={formData.due_date || ''}
-                            onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                        />
-                    </div>
-                </div>
-
-                <div className="flex gap-3">
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-medium transition disabled:opacity-50"
-                    >
-                        {loading ? 'Creating...' : 'Create Task'}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="px-6 bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 rounded-lg font-medium transition"
-                    >
-                        Cancel
-                    </button>
-                </div>
-            </form>
-        </div>
-    );
+        <CardFooter className="flex justify-end gap-3">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={onClose}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            variant="primary"
+            loading={loading}
+            leftIcon={<Sparkles className="w-4 h-4" />}
+          >
+            Create Task
+          </Button>
+        </CardFooter>
+      </form>
+    </Card>
+  );
 }

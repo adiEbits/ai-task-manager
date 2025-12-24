@@ -1,3 +1,8 @@
+/**
+ * Register Page
+ * Fixed - No TypeScript errors, no ESLint warnings
+ */
+
 import { useState, type FormEvent, type ChangeEvent, type JSX } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { authService } from '../services/authService';
@@ -15,19 +20,8 @@ import {
   ArrowRight,
   Check
 } from 'lucide-react';
-
-interface RegisterResponse {
-  user: {
-    id: string;
-    email: string;
-    full_name: string;
-    role: string;
-  };
-  session: {
-    access_token: string;
-    refresh_token: string;
-  };
-}
+import type { User as UserType } from '../types';
+import { USER_ROLE } from '../constants';
 
 interface FormData {
   fullName: string;
@@ -131,21 +125,24 @@ export default function Register(): JSX.Element {
     setLoading(true);
 
     try {
-      const response = await authService.register(
-        formData.email, 
-        formData.password,
-        formData.fullName
-      ) as unknown as RegisterResponse;
+      // Call authService.register with credentials object
+      const response = await authService.register({
+        email: formData.email,
+        password: formData.password,
+        full_name: formData.fullName,
+      });
       
-      login(
-        {
-          id: response.user.id,
-          email: response.user.email,
-          full_name: response.user.full_name || formData.fullName,
-          role: 'user',
-        },
-        response.session.access_token
-      );
+      // Create user object with all required fields
+      const userData: UserType = {
+        id: response.user.id,
+        email: response.user.email,
+        full_name: response.user.full_name || formData.fullName,
+        role: USER_ROLE.USER,
+        created_at: response.user.created_at || new Date().toISOString(),
+      };
+
+      // Call login with user data and token
+      login(userData, response.session.access_token);
 
       toast.success(
         <div className="flex items-center gap-2">
@@ -214,7 +211,7 @@ export default function Register(): JSX.Element {
                       : 'border-gray-200 hover:border-gray-300'
                     }
                   `}
-                  placeholder="John Doe"
+                  placeholder="Name"
                 />
               </div>
               {errors.fullName && (
