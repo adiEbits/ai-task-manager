@@ -1,10 +1,12 @@
 /**
  * Custom Hooks
  * Reusable hooks for common functionality
+ * 
+ * @module hooks/hooks
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { createLogger } from '../utils/logger';
+import { createLogger } from '@/utils/logger';
 
 const logger = createLogger('Hooks');
 
@@ -14,6 +16,9 @@ const logger = createLogger('Hooks');
 
 /**
  * Debounce a value
+ * 
+ * @example
+ * const debouncedSearch = useDebounce(searchTerm, 300);
  */
 export function useDebounce<T>(value: T, delay: number = 300): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
@@ -37,6 +42,9 @@ export function useDebounce<T>(value: T, delay: number = 300): T {
 
 /**
  * Persist state in localStorage
+ * 
+ * @example
+ * const [theme, setTheme, removeTheme] = useLocalStorage('theme', 'light');
  */
 export function useLocalStorage<T>(
   key: string,
@@ -44,6 +52,7 @@ export function useLocalStorage<T>(
 ): [T, (value: T | ((prev: T) => T)) => void, () => void] {
   const [storedValue, setStoredValue] = useState<T>(() => {
     try {
+      if (typeof window === 'undefined') return initialValue;
       const item = window.localStorage.getItem(key);
       return item ? JSON.parse(item) : initialValue;
     } catch (error) {
@@ -57,7 +66,9 @@ export function useLocalStorage<T>(
       try {
         const valueToStore = value instanceof Function ? value(storedValue) : value;
         setStoredValue(valueToStore);
-        window.localStorage.setItem(key, JSON.stringify(valueToStore));
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem(key, JSON.stringify(valueToStore));
+        }
       } catch (error) {
         logger.error('Error writing to localStorage', error as Error, { key });
       }
@@ -67,7 +78,9 @@ export function useLocalStorage<T>(
 
   const removeValue = useCallback(() => {
     try {
-      window.localStorage.removeItem(key);
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem(key);
+      }
       setStoredValue(initialValue);
     } catch (error) {
       logger.error('Error removing from localStorage', error as Error, { key });
@@ -83,14 +96,18 @@ export function useLocalStorage<T>(
 
 /**
  * Detect clicks outside of a referenced element
+ * 
+ * @example
+ * const ref = useClickOutside<HTMLDivElement>(() => setIsOpen(false));
+ * return <div ref={ref}>...</div>
  */
 export function useClickOutside<T extends HTMLElement>(
   callback: () => void
-): React.RefObject<T> {
+): React.RefObject<T | null> {
   const ref = useRef<T>(null);
 
   useEffect(() => {
-    const handleClick = (event: MouseEvent) => {
+    const handleClick = (event: MouseEvent): void => {
       if (ref.current && !ref.current.contains(event.target as Node)) {
         callback();
       }
@@ -122,6 +139,9 @@ interface UseAsyncReturn<T> extends AsyncState<T> {
 
 /**
  * Handle async operations with loading and error states
+ * 
+ * @example
+ * const { data, loading, error, execute } = useAsync(fetchData, true);
  */
 export function useAsync<T>(
   asyncFunction: () => Promise<T>,
@@ -133,7 +153,7 @@ export function useAsync<T>(
     error: null,
   });
 
-  const execute = useCallback(async () => {
+  const execute = useCallback(async (): Promise<void> => {
     setState({ data: null, loading: true, error: null });
     
     try {
@@ -141,10 +161,11 @@ export function useAsync<T>(
       setState({ data, loading: false, error: null });
     } catch (error) {
       setState({ data: null, loading: false, error: error as Error });
+      logger.error('Async operation failed', error as Error);
     }
   }, [asyncFunction]);
 
-  const reset = useCallback(() => {
+  const reset = useCallback((): void => {
     setState({ data: null, loading: false, error: null });
   }, []);
 
@@ -163,13 +184,16 @@ export function useAsync<T>(
 
 /**
  * Toggle boolean state
+ * 
+ * @example
+ * const [isOpen, toggle, setIsOpen] = useToggle(false);
  */
 export function useToggle(
   initialValue: boolean = false
 ): [boolean, () => void, (value: boolean) => void] {
   const [value, setValue] = useState<boolean>(initialValue);
 
-  const toggle = useCallback(() => {
+  const toggle = useCallback((): void => {
     setValue((prev) => !prev);
   }, []);
 
@@ -182,9 +206,12 @@ export function useToggle(
 
 /**
  * Get the previous value of a state
+ * 
+ * @example
+ * const prevCount = usePrevious(count);
  */
 export function usePrevious<T>(value: T): T | undefined {
-  const ref = useRef<T>();
+  const ref = useRef<T | undefined>(undefined);
 
   useEffect(() => {
     ref.current = value;
@@ -199,6 +226,9 @@ export function usePrevious<T>(value: T): T | undefined {
 
 /**
  * Responsive design hook
+ * 
+ * @example
+ * const isLargeScreen = useMediaQuery('(min-width: 1024px)');
  */
 export function useMediaQuery(query: string): boolean {
   const [matches, setMatches] = useState<boolean>(() => {
@@ -209,11 +239,16 @@ export function useMediaQuery(query: string): boolean {
   });
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
     const mediaQuery = window.matchMedia(query);
     
-    const handleChange = (event: MediaQueryListEvent) => {
+    const handleChange = (event: MediaQueryListEvent): void => {
       setMatches(event.matches);
     };
+
+    // Set initial value
+    setMatches(mediaQuery.matches);
 
     mediaQuery.addEventListener('change', handleChange);
     return () => {
@@ -235,19 +270,22 @@ export const useIsDesktop = (): boolean => useMediaQuery('(min-width: 1025px)');
 
 /**
  * Detect key presses
+ * 
+ * @example
+ * const isEnterPressed = useKeyPress('Enter', () => console.log('Enter!'));
  */
 export function useKeyPress(targetKey: string, callback?: () => void): boolean {
   const [keyPressed, setKeyPressed] = useState<boolean>(false);
 
   useEffect(() => {
-    const downHandler = (event: KeyboardEvent) => {
+    const downHandler = (event: KeyboardEvent): void => {
       if (event.key === targetKey) {
         setKeyPressed(true);
         callback?.();
       }
     };
 
-    const upHandler = (event: KeyboardEvent) => {
+    const upHandler = (event: KeyboardEvent): void => {
       if (event.key === targetKey) {
         setKeyPressed(false);
       }
@@ -271,9 +309,13 @@ export function useKeyPress(targetKey: string, callback?: () => void): boolean {
 
 /**
  * setInterval hook with cleanup
+ * 
+ * @example
+ * useInterval(() => console.log('tick'), 1000);
+ * useInterval(() => {}, null); // paused
  */
 export function useInterval(callback: () => void, delay: number | null): void {
-  const savedCallback = useRef<() => void>();
+  const savedCallback = useRef<() => void>(callback);
 
   useEffect(() => {
     savedCallback.current = callback;
@@ -282,7 +324,7 @@ export function useInterval(callback: () => void, delay: number | null): void {
   useEffect(() => {
     if (delay === null) return;
 
-    const tick = () => {
+    const tick = (): void => {
       savedCallback.current?.();
     };
 
@@ -297,6 +339,9 @@ export function useInterval(callback: () => void, delay: number | null): void {
 
 /**
  * Update document title
+ * 
+ * @example
+ * useDocumentTitle('Dashboard - AI Task Manager');
  */
 export function useDocumentTitle(title: string): void {
   useEffect(() => {
@@ -307,4 +352,68 @@ export function useDocumentTitle(title: string): void {
       document.title = previousTitle;
     };
   }, [title]);
+}
+
+// ============================================
+// useCopyToClipboard
+// ============================================
+
+/**
+ * Copy text to clipboard
+ * 
+ * @example
+ * const [copied, copy] = useCopyToClipboard();
+ * copy('Hello World');
+ */
+export function useCopyToClipboard(): [boolean, (text: string) => Promise<void>] {
+  const [copied, setCopied] = useState<boolean>(false);
+
+  const copy = useCallback(async (text: string): Promise<void> => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      
+      // Reset after 2 seconds
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      logger.error('Failed to copy to clipboard', error as Error);
+      setCopied(false);
+    }
+  }, []);
+
+  return [copied, copy];
+}
+
+// ============================================
+// useOnlineStatus
+// ============================================
+
+/**
+ * Track online/offline status
+ * 
+ * @example
+ * const isOnline = useOnlineStatus();
+ */
+export function useOnlineStatus(): boolean {
+  const [isOnline, setIsOnline] = useState<boolean>(() => {
+    if (typeof navigator !== 'undefined') {
+      return navigator.onLine;
+    }
+    return true;
+  });
+
+  useEffect(() => {
+    const handleOnline = (): void => setIsOnline(true);
+    const handleOffline = (): void => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  return isOnline;
 }

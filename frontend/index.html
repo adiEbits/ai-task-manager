@@ -5,17 +5,49 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AI Task Manager</title>
 
-    <!-- FAVICONS -->
-    <link rel="icon" type="image/png" sizes="32x32" href="/public/favicon-32.svg" />
-    <link rel="icon" type="image/png" sizes="16x16" href="/public/favicon-16.svg" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/public/apple-touch-icon.svg" />
+    <!-- FAVICONS (removed /public/ - files in public are served at root) -->
+    <link rel="icon" type="image/svg+xml" sizes="32x32" href="/favicon-32.svg" />
+    <link rel="icon" type="image/svg+xml" sizes="16x16" href="/favicon-16.svg" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.svg" />
     <link rel="manifest" href="/site.webmanifest" />
-    <meta name="theme-color" content="#0E0E0E" />
+    <meta name="theme-color" content="#7c3aed" />
 
     <!-- AI META -->
     <meta name="application-name" content="AI Task Manager" />
     <meta name="apple-mobile-web-app-title" content="AI Task Manager" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="description" content="AI-powered task manager with smart automation, insights, and productivity analytics." />
+
+    <!-- Prevent flash of wrong theme - runs before React loads -->
+    <script>
+      (function() {
+        try {
+          var stored = localStorage.getItem('theme-storage');
+          if (stored) {
+            var parsed = JSON.parse(stored);
+            var theme = parsed.state && parsed.state.theme;
+            if (theme === 'dark') {
+              document.documentElement.classList.add('dark');
+            } else if (theme === 'light') {
+              document.documentElement.classList.remove('dark');
+            } else {
+              // system preference
+              if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.documentElement.classList.add('dark');
+              }
+            }
+          } else {
+            // No stored preference - use system
+            if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+              document.documentElement.classList.add('dark');
+            }
+          }
+        } catch (e) {
+          console.error('Theme init error:', e);
+        }
+      })();
+    </script>
   </head>
 
   <body>

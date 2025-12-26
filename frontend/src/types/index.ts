@@ -1,8 +1,3 @@
-/**
- * Application Type Definitions
- * Centralized type definitions for the entire application
- */
-
 import type { TaskStatus, TaskPriority, UserRole } from '../constants';
 
 // ============================================
@@ -124,6 +119,17 @@ export interface ApiError {
   code?: string;
   status?: number;
   details?: Record<string, unknown>;
+}
+
+export interface ApiErrorResponse {
+  response?: {
+    data?: {
+      detail?: string;
+      message?: string;
+    };
+    status?: number;
+  };
+  message?: string;
 }
 
 export interface ApiResponse<T> {
@@ -259,6 +265,14 @@ export interface InputProps extends BaseComponentProps {
   error?: string;
   hint?: string;
   required?: boolean;
+}
+
+// ============================================
+// Form Types
+// ============================================
+
+export interface FormErrors {
+  [key: string]: string | undefined;
 }
 
 // ============================================
